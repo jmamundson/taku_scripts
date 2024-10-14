@@ -126,8 +126,8 @@ NOTE:
 def main():
     
     # parameters
-    source_path_head = '/home/jason/projects/taku/uav/surveys/04_lk/'
-    target_path = '/home/jason/projects/taku/uav/surveys/05_lk_grids/' 
+    source_path_head = '/hdd/taku/uav/surveys/04_lk/'
+    target_path = '/hdd/taku/uav/surveys/05_lk_grids/' 
       
     grid_size = 50
     observation_threshold = 3
@@ -182,9 +182,9 @@ def utm_to_gridded_utm(arguments):
     
 
     tracks_files = sorted(glob.glob(source_path_head + '*tracks.npz'))
-    dem_files = sorted(glob.glob('/home/jason/projects/taku/uav/surveys/03_hillshades/*.tif'))
+    dem_files = sorted(glob.glob('/hdd/taku/uav/surveys/03_hillshades/*.tif'))
     
-    index = [0, 1, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15 ]
+    index = [0, 1, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15, 16 ]
     dem_files = [dem_files[j] for j in index]
     
     [polygons_coarse, centerpoints_coarse, indices, topleft, rows, cols] = trm.create_grid(dem_files[0], grid_size)
@@ -271,7 +271,7 @@ def utm_to_gridded_utm(arguments):
         speed = np.sqrt(u**2+v**2)
         
         
-        npzname = '{}/{}_gridded.npz'.format('/home/jason/projects/taku/uav/surveys/05_lk_grids', osp.splitext(osp.basename(tracks_files[j]))[0]) 
+        npzname = '{}/{}_gridded.npz'.format('/hdd/taku/uav/surveys/05_lk_grids', osp.splitext(osp.basename(tracks_files[j]))[0]) 
         np.savez(npzname, x=x, y=y, u=u, v=v)
        
         
@@ -286,7 +286,7 @@ def utm_to_gridded_utm(arguments):
         h = ax.quiver(x,y,u,v,speed, scale=10, width=0.001, clim=[0,0.5] )
         
         
-        ax.set_xlim([ulx+300, lrx-1100])
+        ax.set_xlim([ulx, lrx-1100])
         #ax.set_ylim([lry+400, uly-1000])
         ax.set_ylim([lry+1000, uly-400])
     
@@ -301,7 +301,7 @@ def utm_to_gridded_utm(arguments):
         fig.tight_layout()
             
                   
-        plotname = '{}/{}_gridded.png'.format('/home/jason/projects/taku/uav/surveys/05_lk_grids', osp.splitext(osp.basename(tracks_files[j]))[0]) 
+        plotname = '{}/{}_gridded.png'.format('/hdd/taku/uav/surveys/05_lk_grids', osp.splitext(osp.basename(tracks_files[j]))[0]) 
         plt.savefig(plotname, format = 'png', dpi = 80)
         
         plt.close()                    
@@ -309,13 +309,13 @@ def utm_to_gridded_utm(arguments):
     
 
             
-        geotiff_name = '{}/{}_{}.tif'.format('/home/jason/projects/taku/uav/surveys/05_lk_grids', osp.basename(tracks_files[j]).rstrip('_tracks.npz'), 'vx')
+        geotiff_name = '{}/{}_{}.tif'.format('/hdd/taku/uav/surveys/05_lk_grids', osp.basename(tracks_files[j]).rstrip('_tracks.npz'), 'vx')
         savegeotiff(x, y, u, rows, cols, grid_size, geotiff_name)        
         
-        geotiff_name = '{}/{}_{}.tif'.format('/home/jason/projects/taku/uav/surveys/05_lk_grids', osp.basename(tracks_files[j]).rstrip('_tracks.npz'), 'vy')
+        geotiff_name = '{}/{}_{}.tif'.format('/hdd/taku/uav/surveys/05_lk_grids', osp.basename(tracks_files[j]).rstrip('_tracks.npz'), 'vy')
         savegeotiff(x, y, v, rows, cols, grid_size, geotiff_name)
         
-        geotiff_name = '{}/{}_{}.tif'.format('/home/jason/projects/taku/uav/surveys/05_lk_grids', osp.basename(tracks_files[j]).rstrip('_tracks.npz'), 'vv')
+        geotiff_name = '{}/{}_{}.tif'.format('/hdd/taku/uav/surveys/05_lk_grids', osp.basename(tracks_files[j]).rstrip('_tracks.npz'), 'vv')
         savegeotiff(x, y, np.sqrt(u**2+v**2), rows, cols, grid_size, geotiff_name)
         
     

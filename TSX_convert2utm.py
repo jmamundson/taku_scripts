@@ -1,5 +1,5 @@
 import rasterio
-import gdal
+from osgeo import gdal
 import numpy as np
 from matplotlib import pyplot as plt
 import subprocess
@@ -50,14 +50,14 @@ def importTerraSARX(file):
     return(X, Y, data, src_crs)
 
 
-def projectVelocity(vxFile, vyFile, vvFile, dt):
+def projectVelocity(vxFile, vyFile, dt):
     '''
     Projects the velocity vectors into the UTM coordinate system.
 
     Parameters
     ----------
     vxFile, vyFile, vvFile : filenames of the x- and y-components of the 
-        velocity in the original reference frame as well as the speed
+        velocity in the original reference frame
     dt : time interval used for calculating velocities [a]
 
     Returns
@@ -68,16 +68,11 @@ def projectVelocity(vxFile, vyFile, vvFile, dt):
         running writeUTMgeotiff
     '''
     
-    # FIX THIS LATER
-    # For some strange reason this doesn't seem to affect things too much. Why?
-    # dt = 11/365.25 # velocities are in m a^{-1} and timespan between scenes is 11 days
-    
+        
     # Import coordinates of pixel centers (X0, Y0), arrays containing velocity
     # components and speed, and the CRS of the original data set.
     X0, Y0, vx, src_crs = importTerraSARX(vxFile)
-    _, _, vy, _ = importTerraSARX(vyFile)    
-    _, _, vv, _ = importTerraSARX(vvFile)    
-    
+    _, _, vy, _ = importTerraSARX(vyFile)        
    
     
     # Create a transformer to project from original coordinates to UTM Zone 8N.
@@ -98,9 +93,8 @@ def projectVelocity(vxFile, vyFile, vvFile, dt):
     # Compute velocity components and speed.
     vx_utm = (X1_utm-X0_utm)/dt
     vy_utm = (Y1_utm-Y0_utm)/dt
-    vv_utm = np.sqrt(vx_utm**2 + vy_utm**2)
-    
-    return(vx_utm, vy_utm, vv_utm, vx, vy, vv)
+        
+    return(vx_utm, vy_utm)
 
 
 def writeUTMgeotiff(data, originalFile):
@@ -142,20 +136,135 @@ def writeUTMgeotiff(data, originalFile):
     # options = gdal.WarpOptions(srcSRS=ds.GetSpatialRef(), dstSRS='epsg:32608', format='GTiff', xRes=100, yRes=-100, outputBounds=[minX, minY, maxX, maxY])
     # gdal.Warp('test2.tif', 'test.tif', options=options)
     
-    fileNameUTM = originalFile[:-4]+'_utm.tif'
-    subprocess.run(['gdalwarp', '-t_srs', dst_crs, '-te', str(minX), str(minY), str(maxX), str(maxY), '-tr','100','-100', 'tmp.tif', fileNameUTM])
+    filenameUTM = originalFile[:-4]+'_utm.tif'
+    subprocess.run(['gdalwarp', '-t_srs', dst_crs, '-te', str(minX), str(minY), str(maxX), str(maxY), '-tr','100','-100', 'tmp.tif', filenameUTM])
     os.remove('tmp.tif')
 
-#%%
+    return(filenameUTM)
 
-filenameVX=sorted(glob.glob('/home/jason/Dropbox/Taku/Data/TSX/Release2/Release2/Alaska-Taku/*/*vx_v04.0.tif'))
-filenameVY=sorted(glob.glob('/home/jason/Dropbox/Taku/Data/TSX/Release2/Release2/Alaska-Taku/*/*vy_v04.0.tif'))
-filenameVV=sorted(glob.glob('/home/jason/Dropbox/Taku/Data/TSX/Release2/Release2/Alaska-Taku/*/*vv_v04.0.tif'))
+
+def writeUTMgeotiff_vv(data, filename):
+    '''
+    Create new geotiff. Does not gdalwarp, so use this only for creating a 
+    vv geotiff, after creating vx and vy geotiffs.
+
+    Parameters
+    ----------
+    data : array of speed
+    filename : name of the original file; needed in order to create new filename
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    filenameUTM = filename[:-4]+'_utm.tif'
+    
+    driver = gdal.GetDriverByName('GTiff')
+    rows, cols = data.shape
+    dataset = driver.Create(filenameUTM, cols, rows, 1, gdal.GDT_Float32)
+    
+    # now warp and crop
+    minX=524000
+    maxX=604000
+    minY=6450000
+    maxY=6515000
+    xres = 100
+    yres = 100
+
+
+    geotransform = (minX, xres, 0, maxY, 0, -yres)  # Example geotransform
+    projection = osr.SpatialReference()
+    projection.ImportFromEPSG(32608)  # Example projection (WGS84, UTM Zone 8)
+    
+    # Set the geotransform and projection
+    dataset.SetGeoTransform(geotransform)
+    dataset.SetProjection(projection.ExportToWkt())
+
+    # Write the array data to the GeoTIFF file
+    band = dataset.GetRasterBand(1)
+    band.WriteArray(data)
+    band.FlushCache()
+
+    # Close the dataset
+    dataset = None
+    
+    
+
+#%%
+base_dir = '/hdd/taku/TerraSAR-X/velocities'
+filenameVX=sorted(glob.glob(base_dir + '/Release4/Alaska-Taku/*/*vx_v04.0.tif'))
+filenameVY=sorted(glob.glob(base_dir + '/Release4/Alaska-Taku/*/*vy_v04.0.tif'))
+filenameVV=sorted(glob.glob(base_dir + '/Release4/Alaska-Taku/*/*vv_v04.0.tif'))
+
+
+dt = 11/365.25
 
 for j in np.arange(0, len(filenameVX)):
     
-    vx_utm, vy_utm, vv_utm, vx, vy, vv = projectVelocity(filenameVX[j], filenameVY[j], filenameVV[j], 11/365.25)
+    # velocity vectors are in UTM, but pixel coordinates are not
+    vx_utm, vy_utm = projectVelocity(filenameVX[j], filenameVY[j], dt) 
     
-    writeUTMgeotiff(vx_utm, filenameVX[j])
-    writeUTMgeotiff(vy_utm, filenameVY[j])
-    writeUTMgeotiff(vv_utm, filenameVV[j])
+    # project pixel coordinates into UTM and save geotiffs
+    filenameVX_new = writeUTMgeotiff(vx_utm, filenameVX[j])
+    filenameVY_new = writeUTMgeotiff(vy_utm, filenameVY[j])
+    
+    # load new geotiffs and compute the speed; now vectors and pixel coordinates are already in UTM
+    X, Y, vx, src_crs = importTerraSARX(filenameVX_new)
+    X, Y, vy, src_crs = importTerraSARX(filenameVY_new)
+    
+    vv = np.sqrt(vx**2+vy**2)
+    
+    writeUTMgeotiff_vv(vv, filenameVV[j])
+
+
+
+#%%
+# from shapely.geometry import LineString, Point
+# import shapefile
+# import rasterstats
+# from rasterstats import zonal_stats, point_query
+
+
+# profile_shp = '/home/jason/Downloads/cross_transect_test.shp'
+# profile = shapefile.Reader(profile_shp).shapes()
+
+# profile = LineString(profile[0].points)
+# X, Y = np.array(profile.coords.xy)
+# X, Y = np.linspace(X[0], X[-1], 100, endpoint=True), np.linspace(Y[0], Y[-1], 100, endpoint=True) 
+
+# profile = LineString(list(zip(X,Y)))
+
+# # profiles_shp = '../sediment_profiles/profiles.shp'
+# # profiles = shapefile.Reader(profiles_shp).shapes()
+# # profile = LineString(profiles[3].points)
+# # X, Y = np.array(profile.coords.xy)
+
+
+# filenameVX = sorted(glob.glob('/home/jason/Desktop/Sentinel1/Release1-12day/Vel-2023-07-30.2023-08-10/*vx_v02.0_utm.tif'))
+# filenameVY = sorted(glob.glob('/home/jason/Desktop/Sentinel1/Release1-12day/Vel-2023-07-30.2023-08-10/*vy_v02.0_utm.tif'))
+# filenameVV = sorted(glob.glob('/home/jason/Desktop/Sentinel1/Release1-12day/Vel-2023-07-30.2023-08-10/*vv_v02.0_utm.tif'))
+
+# # ds = gdal.Open(filenameVX[0])
+# # vx = ds.ReadAsArray()
+
+# # ds = gdal.Open(filenameVY[0])
+# # vy = ds.ReadAsArray()
+
+# # ds = gdal.Open(filenameVV[0])
+# # vv = ds.ReadAsArray()
+
+# # plt.imshow(np.sqrt(vx**2+vy**2)-vv)
+# # plt.colorbar()
+
+
+# dist = np.sqrt((X-X[0])**2+(Y-Y[0])**2)
+# vx = np.array(rasterstats.point_query(profile, filenameVX[0])[0])
+# vy = np.array(rasterstats.point_query(profile, filenameVY[0])[0])
+# vv = np.array(rasterstats.point_query(profile, filenameVV[0])[0])
+
+# plt.subplot(211)
+# plt.plot(dist, np.sqrt(vx**2+vy**2), dist, vv)
+# plt.subplot(212)
+# plt.plot(dist, np.sqrt(vx**2+vy**2)-vv)

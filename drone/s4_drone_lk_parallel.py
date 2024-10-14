@@ -138,7 +138,7 @@ def lucaskanade_tracking(ws_source, ws_target, track_len, track_len_sec,
     imagelist = sorted(glob.glob(ws_source + '/*.tif'))
     
     # use following two lines to select specific files from imagelist
-    index = [0, 1, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15 ]
+    index = [0, 1, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15, 16 ]
     imagelist = [imagelist[j] for j in index]
     
     # avoid folders with image_numbers smaller than track length (would throw errors)
@@ -334,7 +334,7 @@ def lucaskanade_tracking(ws_source, ws_target, track_len, track_len_sec,
                             h = ax.quiver(xi,yi,u,v,speed, scale=20, width=0.001, clim=[0,0.5] )
                             
                             
-                            ax.set_xlim([300, frame_gray.shape[1]-1100])
+                            ax.set_xlim([0, frame_gray.shape[1]-1100])
                             ax.set_ylim([frame_gray.shape[0]-1000, 400])
                                                        
                             ax.set_xticklabels([])
