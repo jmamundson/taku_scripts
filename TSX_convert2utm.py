@@ -137,7 +137,7 @@ def writeUTMgeotiff(data, originalFile):
     # gdal.Warp('test2.tif', 'test.tif', options=options)
     
     filenameUTM = originalFile[:-4]+'_utm.tif'
-    subprocess.run(['gdalwarp', '-t_srs', dst_crs, '-te', str(minX), str(minY), str(maxX), str(maxY), '-tr','100','-100', 'tmp.tif', filenameUTM])
+    subprocess.run(['gdalwarp', '-t_srs', dst_crs, '-te', str(minX), str(minY), str(maxX), str(maxY), '-tr','100','-100', '-r', 'cubicspline', 'tmp.tif', filenameUTM])
     os.remove('tmp.tif')
 
     return(filenameUTM)
