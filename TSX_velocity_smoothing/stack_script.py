@@ -1,5 +1,3 @@
-    
-
 import os
 import numpy as np
 import rasterio
@@ -8,6 +6,8 @@ import re
 from datetime import datetime
 import datetime as dt
 from statsmodels.nonparametric.smoothers_lowess import lowess
+from osgeo import gdal
+import subprocess
 
 def stack_geotiffs_and_find_max_index(directory, date_structure, filename_ending,output_directory, year,datatype, mask_switch):
     # Get a list of all subdirectories
@@ -57,40 +57,90 @@ def stack_geotiffs_and_find_max_index(directory, date_structure, filename_ending
     # Stack the arrays into a 3D array
     sorted_dates = sorted(arrays_dict.keys())
     stacked_arrays = np.stack([arrays_dict[date] for date in sorted_dates], axis=0)
-    # Create an array that has the number of observations (excluding NaNs)
-    # Find the maximum value for each cell across the 3D array
+    
+    # express dates as ordinal dates
+    dates = [dt.datetime.strptime(j,'%Y-%m-%d') for j in sorted_dates]
+    ordinal_dates = [x.toordinal() for x in dates]
+    
+    
+    # filter the stacked_arrays using a lowess filter
+    data = np.zeros(stacked_arrays.shape)
+    for j in np.arange(0,stacked_arrays.shape[1]):
+        for k in np.arange(0,stacked_arrays.shape[2]):
+            data[:,j,k] = lowess(stacked_arrays[:,j,k], ordinal_dates,  frac=1/2, it=3, return_sorted=False)
+    
+    # stacked_arrays = data            
+            
+    # find when max velocity occurs
+    max_indices = np.argmax(stacked_arrays, axis=0)
+    
+    #max_dates = dates[max_indices]
+    max_dates_doy = np.array(ordinal_dates)[max_indices]
+    max_dates_doy -= dt.datetime(int(year)-1,12,31).toordinal() # express max_dates in terms of day of year
+   
     max_values = np.nanmax(stacked_arrays, axis=0)
     min_values = np.nanmin(stacked_arrays, axis=0)
+
+       
     velocity_range = max_values - min_values
     num_observations1 = np.sum(~np.isnan(stacked_arrays), axis=0)
 
-    # Identify the date corresponding to the maximum value for each cell
-    max_indices = np.argmax(stacked_arrays, axis=0)
-    max_dates = np.array(sorted_dates)[max_indices]
-    # Convert max_dates to day of year
-    max_dates_doy = np.vectorize(lambda date: datetime.strptime(date, '%Y-%m-%d').timetuple().tm_yday)(max_dates)
+    # # Identify the date corresponding to the maximum value for each cell
+    # max_indices = np.argmax(stacked_arrays, axis=0)
+    # max_dates = np.array(sorted_dates)[max_indices]
+    # # Convert max_dates to day of year
+    # max_dates_doy = np.vectorize(lambda date: datetime.strptime(date, '%Y-%m-%d').timetuple().tm_yday)(max_dates)
     
     if mask_switch == 'True':
      # Filter max_dates to be between day 32 and day 274
-        mask = (max_dates_doy >= 32) & (max_dates_doy <= 274)
-        max_values_filtered = np.where(mask, max_dates_doy, np.nan)
-        max_dates_doy = max_values_filtered
-
+        mask = (max_dates_doy >= 60) & (max_dates_doy <=305)
+        max_dates_doy = np.where(mask, max_dates_doy, np.nan)
+        max_values = np.where(mask, max_values, np.nan)
+        min_values = np.where(mask, min_values, np.nan)
+        
     # Save the velocity_range and day of year array as a GeoTIFF file
     output_filepath1 = os.path.join(output_directory, 'day_of_max_'f'{year}'f'_{datatype}_redo.tif')
-    output_filepath2 = os.path.join(output_directory, 'velocity_range'f'{year}'f'_{datatype}_redo.tif')
-    output_filepath3 = os.path.join(output_directory, 'num_obs'f'{year}'f'_{datatype}_redo.tif')
+    output_filepath2 = os.path.join(output_directory, 'max_values_'f'{year}'f'_{datatype}_redo.tif')
+    output_filepath3 = os.path.join(output_directory, 'min_values_'f'{year}'f'_{datatype}_redo.tif')
+    output_filepath4 = os.path.join(output_directory, 'num_obs_'f'{year}'f'_{datatype}_redo.tif')
+    
+    
+    takuShp = 'taku_outline_large_poly.shp'
+    
     meta.update(dtype=rasterio.float32, count=1)
-    with rasterio.open(output_filepath1, 'w', **meta) as dst:
+    
+    if os.path.exists('*' + year + '*.tif'):
+        os.remove('*.tif')
+    
+    with rasterio.open('tmp.tif', 'w', **meta) as dst:
         dst.write(max_dates_doy.astype(rasterio.float32), 1)
-    with rasterio.open(output_filepath2, 'w', **meta) as dst:
-        dst.write(velocity_range.astype(rasterio.float32), 1)
+    subprocess.run(['gdalwarp', '-cutline', takuShp, '-dstnodata', '0', 'tmp.tif', output_filepath1])
+    os.remove('tmp.tif')
+    print(f"Saved max dates array to {output_filepath1}")
+        
+    with rasterio.open('tmp.tif', 'w', **meta) as dst:
+        dst.write(max_values.astype(rasterio.float32), 1)
+    subprocess.run(['gdalwarp', '-cutline', takuShp, '-dstnodata', '0', 'tmp.tif', output_filepath2])
+    os.remove('tmp.tif')
     print(f"Saved max values array to {output_filepath1}")
-    with rasterio.open(output_filepath3, 'w', **meta) as dst:
+    
+    with rasterio.open('tmp.tif', 'w', **meta) as dst:
+        dst.write(min_values.astype(rasterio.float32), 1)
+    subprocess.run(['gdalwarp', '-cutline', takuShp, '-dstnodata', '0', 'tmp.tif', output_filepath3])
+    os.remove('tmp.tif')
+    print(f"Saved min values array to {output_filepath1}")
+    
+    with rasterio.open('tmp.tif', 'w', **meta) as dst:
         dst.write(num_observations1.astype(rasterio.float32), 1)
-    print(f"Saved max values array to {output_filepath1}")
+    subprocess.run(['gdalwarp', '-cutline', takuShp, '-dstnodata', '0', 'tmp.tif', output_filepath4])
+    os.remove('tmp.tif')
+    print(f"Saved num observations array to {output_filepath1}")
 
-    return stacked_arrays, sorted_dates, max_values, max_dates, max_dates_doy
+
+    return stacked_arrays, sorted_dates, max_values, max_dates_doy, min_values
+
+
+    
 
 
 if __name__ == '__main__':
@@ -108,13 +158,6 @@ if __name__ == '__main__':
     mask_switch = 'True'
     year = '2022'
     output_directory = ''
-    stacked_arrays, sorted_dates, max_values, max_dates, max_dates_doy = stack_geotiffs_and_find_max_index(directory, date_structure, filename_ending,output_directory, year, datatype, mask_switch)
+    stack_geotiffs_and_find_max_index(directory, date_structure, filename_ending, output_directory, year, datatype, mask_switch)
 
-    dates = [dt.datetime.strptime(j,'%Y-%m-%d') for j in sorted_dates]
-    ordinal_dates = [x.toordinal() for x in dates]
-
-j = 300
-k = 300
-
-lowess(dates, stacked_arrays[:,j,k], frac=0.1, it=3)
 
