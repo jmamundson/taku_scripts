@@ -245,11 +245,19 @@ def writeUTMgeotiff_vv(data, filename):
     
 
 #%%
-base_dir = '/hdd/taku/TerraSAR-X/velocities'
-filenameVX=sorted(glob.glob(base_dir + '/Release4/Alaska-Taku/*/*vx_v04.0.tif'))
-filenameVY=sorted(glob.glob(base_dir + '/Release4/Alaska-Taku/*/*vy_v04.0.tif'))
-filenameVV=sorted(glob.glob(base_dir + '/Release4/Alaska-Taku/*/*vv_v04.0.tif'))
 
+datatype = 'Sentinel1'
+
+if datatype == 'TSX':
+    base_dir = '/hdd/taku/TerraSAR-X/velocities/Release4/Alaska-Taku/'
+    filenameVX=sorted(glob.glob(base_dir + '*/*vx_v04.0.tif'))
+    filenameVY=sorted(glob.glob(base_dir + '*/*vy_v04.0.tif'))
+    filenameVV=sorted(glob.glob(base_dir + '*/*vv_v04.0.tif'))
+elif datatype == 'Sentinel1':
+    base_dir = '/hdd/taku/Sentinel1/Release1-12day/'
+    filenameVX=sorted(glob.glob(base_dir + '*/*vx_v02.0.tif'))
+    filenameVY=sorted(glob.glob(base_dir + '*/*vy_v02.0.tif'))
+    filenameVV=sorted(glob.glob(base_dir + '*/*vv_v02.0.tif'))
 
 # dt = 11/365.25
 

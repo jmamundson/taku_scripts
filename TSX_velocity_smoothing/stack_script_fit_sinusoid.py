@@ -107,6 +107,7 @@ def stack_geotiffs_and_fit_sinusoid(directory, date_structure, filename_ending,o
         kmin = 220
         kmax = 360
     
+    counter = 1
     # this little bit fits a sinusoid through every grid point
     for j in np.arange(0,stacked_arrays.shape[1]):
         for k in np.arange(0,stacked_arrays.shape[2]):
@@ -133,7 +134,8 @@ def stack_geotiffs_and_fit_sinusoid(directory, date_structure, filename_ending,o
                     result = minimize(findPhi, (100,0), args=(t,v), constraints=[cons])
                     
                     A[j,k], phi[j,k] = result.x
-                    print("{:.2f}".format( (j-jmin)*(k-kmin) / ((jmax-jmin)*(kmax-kmin)) ) )
+                    print("{:.2f}".format( counter / ((jmax-jmin)*(kmax-kmin)) ) )
+                    counter += 1
                     
     # convert phi to day of year
     doy = daysYear/2 * (1 - phi/np.pi)
@@ -181,7 +183,7 @@ def stack_geotiffs_and_fit_sinusoid(directory, date_structure, filename_ending,o
 #%%
 if __name__ == '__main__':
 
-    datatype = 'Sentinel1'
+    datatype = 'TSX'
     # datatype = 'TSX'
     if datatype == 'Sentinel1':
         date_structure = r's1cycle_(\d{2}[A-Za-z]{3}\d{2})_(\d{2}[A-Za-z]{3}\d{2})_'
