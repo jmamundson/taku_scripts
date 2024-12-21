@@ -183,7 +183,7 @@ def stack_geotiffs_and_fit_sinusoid(directory, date_structure, filename_ending,o
 #%%
 if __name__ == '__main__':
 
-    datatype = 'TSX'
+    datatype = 'Sentinel1'
     # datatype = 'TSX'
     if datatype == 'Sentinel1':
         date_structure = r's1cycle_(\d{2}[A-Za-z]{3}\d{2})_(\d{2}[A-Za-z]{3}\d{2})_'

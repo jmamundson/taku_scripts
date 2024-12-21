@@ -1,3 +1,5 @@
+# need to fix so that it pulls the correct resolution from the original images!!!
+
 import rasterio
 from osgeo import gdal
 import numpy as np
@@ -189,7 +191,8 @@ def writeUTMgeotiff(data, originalFile):
     # gdal.Warp('test2.tif', 'test.tif', options=options)
     
     filenameUTM = originalFile[:-4]+'_utm.tif'
-    subprocess.run(['gdalwarp', '-t_srs', dst_crs, '-te', str(minX), str(minY), str(maxX), str(maxY), '-tr','100','-100', '-r', 'cubicspline', 'tmp.tif', filenameUTM])
+    # be careful with resolution!
+    subprocess.run(['gdalwarp', '-t_srs', dst_crs, '-te', str(minX), str(minY), str(maxX), str(maxY), '-tr','200','-200', '-r', 'cubicspline', 'tmp.tif', filenameUTM])
     os.remove('tmp.tif')
 
     return(filenameUTM)
@@ -222,8 +225,8 @@ def writeUTMgeotiff_vv(data, filename):
     maxX=604000
     minY=6450000
     maxY=6515000
-    xres = 100
-    yres = 100
+    xres = 200
+    yres = 200
 
 
     geotransform = (minX, xres, 0, maxY, 0, -yres)  # Example geotransform
