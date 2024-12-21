@@ -231,33 +231,52 @@ doy[A<5] = np.nan
 A[A<5] = np.nan
 
 
-plt.figure(figsize=(10,5))
-plt.subplot(131)
+plt.figure(figsize=(10,10))
+plt.subplot(221)
 plt.imshow(doy,vmin=50,vmax=250)
 plt.xlim([xmin, xmax])
 plt.ylim([ymax, ymin])
 cbar = plt.colorbar(location='bottom')
 cbar.set_label('Day of peak speed')
+plt.xticks([])
+plt.yticks([])
 
-plt.subplot(132)
+plt.subplot(222)
+plt.imshow(u_mean)
+plt.xlim([xmin, xmax])
+plt.ylim([ymax, ymin])
+cbar = plt.colorbar(location='bottom')
+cbar.set_label('Mean speed [m/yr]')
+plt.xticks([])
+plt.yticks([])
+
+plt.subplot(223)
 plt.imshow(A)
 plt.xlim([xmin, xmax])
 plt.ylim([ymax, ymin])
 cbar = plt.colorbar(location='bottom')
 cbar.set_label('Amplitude of oscillations [m/yr]')
+plt.xticks([])
+plt.yticks([])
 
-plt.subplot(133)
+plt.subplot(224)
 plt.imshow(A/u_mean)
 plt.xlim([xmin, xmax])
 plt.ylim([ymax, ymin])
 cbar = plt.colorbar(location='bottom')
 cbar.set_label('Amplitude / mean speed')
+plt.xticks([])
+plt.yticks([])
+
+plt.tight_layout()
 
 plt.savefig(datatype + '_phase_fitting.png', format='png', dpi=150)
 
 #%%
 plt.figure()
-j = 380 # north-south pixel
-k = 310 # east-west pixel
+j = 185 # north-south pixel
+k = 160 # east-west pixel
 ordinal_dates = [x.toordinal() for x in dates]
 plt.plot(dates, stacked_arrays[:,j,k], dates, -A[j,k]*np.cos(omega*np.array(ordinal_dates) + phi[j,k]) + u_mean[j,k])
+plt.ylabel('Speed [m/yr]')
+plt.xlabel('Year')

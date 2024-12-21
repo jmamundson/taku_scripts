@@ -12,6 +12,7 @@ dst_crs = 'EPSG:32608'
 
 import os
 import glob
+from os.path import basename
 
 # This code converts velocity fields from some initial CRS into UTM Zone 8N. It
 # transforms both the vectors and the underlying pixel coordinates.
@@ -49,52 +50,103 @@ def importTerraSARX(file):
      
     return(X, Y, data, src_crs)
 
-
-def projectVelocity(vxFile, vyFile, dt):
+#%%
+def rotateVelocity(vxFile, vyFile):
     '''
-    Projects the velocity vectors into the UTM coordinate system.
-
+    Rotates the velocity vector from polar stereographic coordinates to UTM. 
+    This requires finding the angle of the position vector in polar 
+    stereographic coordinates and rotating the coordinate system so that one
+    velocity component points north-south and the other points east west. 
+    
+    Note that in polar stereographic coordinates, for the orientation used for
+    the Taku imagery, negative y points roughly from the pole toward the equator
+    and x points roughly from west to east. These directions are accounted for
+    when determining the UTM velocity, so that vx_utm points east and vy_utm
+    points north.
+    
     Parameters
     ----------
-    vxFile, vyFile, vvFile : filenames of the x- and y-components of the 
-        velocity in the original reference frame
-    dt : time interval used for calculating velocities [a]
-
+    vxFile, vyFile : filenames of the x- and y-components of the velocity in 
+            the original reference frame
+     
     Returns
     -------
-    vx_utm, vy_utm, vv_utm : arrays containing the x- and y- components of the 
-        velocity and the speed in UTM Zone 8N; the vectors have been projected
-        into UTM but the arrays containing the vectors are not projected until
-        running writeUTMgeotiff
+    vx_utm, vy_utm : components of the velocity vector in UTM coordinates, with
+            positive values indicative motion to the east and north, 
+            respectively
+
     '''
     
-        
-    # Import coordinates of pixel centers (X0, Y0), arrays containing velocity
-    # components and speed, and the CRS of the original data set.
     X0, Y0, vx, src_crs = importTerraSARX(vxFile)
-    _, _, vy, _ = importTerraSARX(vyFile)        
+    _, _, vy, _ = importTerraSARX(vyFile)  
+
+    vx_utm = np.zeros(vx.shape)
+    vy_utm = np.zeros(vy.shape)
+
+    # x-coordinate points from west to east
+    # negative y-coordinate points from north to south (starting at north pole)
+
+    theta = np.arctan(X0/-Y0) # rotation angle
+    
+    # there might be a more compact way of stepping through every pixel using matrix multiplication        
+    for j in np.arange(0, theta.shape[0]):
+        for k in np.arange(0, theta.shape[1]):
+            rot = np.array([ [np.cos(theta[j,k]), np.sin(theta[j,k])] , [-np.sin(theta[j,k]), np.cos(theta[j,k])] ])        
+            vy_utm[j,k], vx_utm[j,k] = np.matmul(rot, np.array([-vy[j,k], vx[j,k]]))
+
+    vy_utm = -vy_utm
+    
+    
+    return(vx_utm, vy_utm)
+
+#%%
+
+
+# def projectVelocity(vxFile, vyFile, dt):
+#     '''
+#     Projects the velocity vectors into the UTM coordinate system.
+
+#     Parameters
+#     ----------
+#     vxFile, vyFile : filenames of the x- and y-components of the 
+#         velocity in the original reference frame
+#     dt : time interval used for calculating velocities [a]
+
+#     Returns
+#     -------
+#     vx_utm, vy_utm, vv_utm : arrays containing the x- and y- components of the 
+#         velocity and the speed in UTM Zone 8N; the vectors have been projected
+#         into UTM but the arrays containing the vectors are not projected until
+#         running writeUTMgeotiff
+#     '''
+    
+        
+#     # Import coordinates of pixel centers (X0, Y0), arrays containing velocity
+#     # components and speed, and the CRS of the original data set.
+#     X0, Y0, vx, src_crs = importTerraSARX(vxFile)
+#     _, _, vy, _ = importTerraSARX(vyFile)        
    
     
-    # Create a transformer to project from original coordinates to UTM Zone 8N.
-    transformProjection = Transformer.from_crs(src_crs, dst_crs)
+#     # Create a transformer to project from original coordinates to UTM Zone 8N.
+#     transformProjection = Transformer.from_crs(src_crs, dst_crs)
     
-    # Calculate new coordinates in the original CRS.
-    X1 = X0 + vx*dt
-    Y1 = Y0 + vy*dt
+#     # Calculate new coordinates in the original CRS.
+#     X1 = X0 + vx*dt
+#     Y1 = Y0 + vy*dt
     
-    # Initial and final position in UTM Zone 8N.
-    X0_utm, Y0_utm = transformProjection.transform(X0,Y0)
-    X1_utm, Y1_utm = transformProjection.transform(X1,Y1)
+#     # Initial and final position in UTM Zone 8N.
+#     X0_utm, Y0_utm = transformProjection.transform(X0,Y0)
+#     X1_utm, Y1_utm = transformProjection.transform(X1,Y1)
     
-    # Set no data values to NaN because they get turned into 'inf' during transformation.
-    X0_utm[np.isnan(vx)], Y0_utm[np.isnan(vx)] = np.nan, np.nan 
-    X1_utm[np.isnan(vx)], Y1_utm[np.isnan(vx)] = np.nan, np.nan 
+#     # Set no data values to NaN because they get turned into 'inf' during transformation.
+#     X0_utm[np.isnan(vx)], Y0_utm[np.isnan(vx)] = np.nan, np.nan 
+#     X1_utm[np.isnan(vx)], Y1_utm[np.isnan(vx)] = np.nan, np.nan 
     
-    # Compute velocity components and speed.
-    vx_utm = (X1_utm-X0_utm)/dt
-    vy_utm = (Y1_utm-Y0_utm)/dt
+#     # Compute velocity components and speed.
+#     vx_utm = (X1_utm-X0_utm)/dt
+#     vy_utm = (Y1_utm-Y0_utm)/dt
         
-    return(vx_utm, vy_utm)
+#     return(vx_utm, vy_utm)
 
 
 def writeUTMgeotiff(data, originalFile):
@@ -199,12 +251,15 @@ filenameVY=sorted(glob.glob(base_dir + '/Release4/Alaska-Taku/*/*vy_v04.0.tif'))
 filenameVV=sorted(glob.glob(base_dir + '/Release4/Alaska-Taku/*/*vv_v04.0.tif'))
 
 
-dt = 11/365.25
+# dt = 11/365.25
 
 for j in np.arange(0, len(filenameVX)):
     
+    print('Processing: ' + basename(filenameVX[j]))
     # velocity vectors are in UTM, but pixel coordinates are not
-    vx_utm, vy_utm = projectVelocity(filenameVX[j], filenameVY[j], dt) 
+    # vx_utm, vy_utm = projectVelocity(filenameVX[j], filenameVY[j], dt) 
+    vx_utm, vy_utm = rotateVelocity(filenameVX[j], filenameVY[j])
+    
     
     # project pixel coordinates into UTM and save geotiffs
     filenameVX_new = writeUTMgeotiff(vx_utm, filenameVX[j])
@@ -218,53 +273,3 @@ for j in np.arange(0, len(filenameVX)):
     
     writeUTMgeotiff_vv(vv, filenameVV[j])
 
-
-
-#%%
-# from shapely.geometry import LineString, Point
-# import shapefile
-# import rasterstats
-# from rasterstats import zonal_stats, point_query
-
-
-# profile_shp = '/home/jason/Downloads/cross_transect_test.shp'
-# profile = shapefile.Reader(profile_shp).shapes()
-
-# profile = LineString(profile[0].points)
-# X, Y = np.array(profile.coords.xy)
-# X, Y = np.linspace(X[0], X[-1], 100, endpoint=True), np.linspace(Y[0], Y[-1], 100, endpoint=True) 
-
-# profile = LineString(list(zip(X,Y)))
-
-# # profiles_shp = '../sediment_profiles/profiles.shp'
-# # profiles = shapefile.Reader(profiles_shp).shapes()
-# # profile = LineString(profiles[3].points)
-# # X, Y = np.array(profile.coords.xy)
-
-
-# filenameVX = sorted(glob.glob('/home/jason/Desktop/Sentinel1/Release1-12day/Vel-2023-07-30.2023-08-10/*vx_v02.0_utm.tif'))
-# filenameVY = sorted(glob.glob('/home/jason/Desktop/Sentinel1/Release1-12day/Vel-2023-07-30.2023-08-10/*vy_v02.0_utm.tif'))
-# filenameVV = sorted(glob.glob('/home/jason/Desktop/Sentinel1/Release1-12day/Vel-2023-07-30.2023-08-10/*vv_v02.0_utm.tif'))
-
-# # ds = gdal.Open(filenameVX[0])
-# # vx = ds.ReadAsArray()
-
-# # ds = gdal.Open(filenameVY[0])
-# # vy = ds.ReadAsArray()
-
-# # ds = gdal.Open(filenameVV[0])
-# # vv = ds.ReadAsArray()
-
-# # plt.imshow(np.sqrt(vx**2+vy**2)-vv)
-# # plt.colorbar()
-
-
-# dist = np.sqrt((X-X[0])**2+(Y-Y[0])**2)
-# vx = np.array(rasterstats.point_query(profile, filenameVX[0])[0])
-# vy = np.array(rasterstats.point_query(profile, filenameVY[0])[0])
-# vv = np.array(rasterstats.point_query(profile, filenameVV[0])[0])
-
-# plt.subplot(211)
-# plt.plot(dist, np.sqrt(vx**2+vy**2), dist, vv)
-# plt.subplot(212)
-# plt.plot(dist, np.sqrt(vx**2+vy**2)-vv)
