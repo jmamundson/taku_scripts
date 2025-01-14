@@ -94,7 +94,7 @@ def stack_geotiffs_and_fit_sinusoid(directory, date_structure, filename_ending,o
     totalPixels = A.shape[0]*A.shape[1]
     
     if datatype == 'Sentinel1':
-        t_mask = (dates>dt.datetime(2016,12,31)) & (dates<dt.datetime(2022,1,1))
+        t_mask = (dates>dt.datetime(2015,12,31)) & (dates<dt.datetime(2024,1,1))
         jmin = 120
         jmax = 210
         kmin = 110
@@ -183,8 +183,8 @@ def stack_geotiffs_and_fit_sinusoid(directory, date_structure, filename_ending,o
 #%%
 if __name__ == '__main__':
 
-    datatype = 'Sentinel1'
-    # datatype = 'TSX'
+    #datatype = 'Sentinel1'
+    datatype = 'TSX'
     if datatype == 'Sentinel1':
         date_structure = r's1cycle_(\d{2}[A-Za-z]{3}\d{2})_(\d{2}[A-Za-z]{3}\d{2})_'
         directory = '/hdd/taku/Sentinel1/Release1-12day/'
@@ -244,7 +244,7 @@ plt.xticks([])
 plt.yticks([])
 
 plt.subplot(222)
-plt.imshow(u_mean)
+plt.imshow(u_mean, vmin=0, vmax=400)
 plt.xlim([xmin, xmax])
 plt.ylim([ymax, ymin])
 cbar = plt.colorbar(location='bottom')
@@ -253,7 +253,7 @@ plt.xticks([])
 plt.yticks([])
 
 plt.subplot(223)
-plt.imshow(A)
+plt.imshow(A, vmin=0, vmax=70)
 plt.xlim([xmin, xmax])
 plt.ylim([ymax, ymin])
 cbar = plt.colorbar(location='bottom')
@@ -262,7 +262,7 @@ plt.xticks([])
 plt.yticks([])
 
 plt.subplot(224)
-plt.imshow(A/u_mean)
+plt.imshow(A/u_mean, vmin=0, vmax=1)
 plt.xlim([xmin, xmax])
 plt.ylim([ymax, ymin])
 cbar = plt.colorbar(location='bottom')
