@@ -207,6 +207,10 @@ with rasterio.open(datatype + '_doy.tif') as src:
     
     doy[doy==0] = np.nan
 
+    transform = src.transform
+    transformer = rasterio.transform.AffineTransformer(transform)
+    transformer.rowcol(554399, 6475759)
+
 with rasterio.open(datatype + '_A.tif') as src:
     A = src.read(1)
     A[A==0] = np.nan

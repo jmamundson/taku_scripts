@@ -14,7 +14,7 @@ dst_crs = 'EPSG:32608'
 
 import os
 import glob
-from os.path import basename
+from os.path import basename, isfile
 
 # This code converts velocity fields from some initial CRS into UTM Zone 8N. It
 # transforms both the vectors and the underlying pixel coordinates.
@@ -252,12 +252,12 @@ def writeUTMgeotiff_vv(data, filename):
 datatype = 'Sentinel1'
 
 if datatype == 'TSX':
-    base_dir = '/hdd/taku/TerraSAR-X/velocities/Release4/Alaska-Taku/'
+    base_dir = '/hdd2/taku/TerraSAR-X/velocities/Release5/Alaska-Taku/'
     filenameVX=sorted(glob.glob(base_dir + '*/*vx_v04.0.tif'))
     filenameVY=sorted(glob.glob(base_dir + '*/*vy_v04.0.tif'))
     filenameVV=sorted(glob.glob(base_dir + '*/*vv_v04.0.tif'))
 elif datatype == 'Sentinel1':
-    base_dir = '/hdd/taku/Sentinel1/Release1-12day/'
+    base_dir = '/hdd2/taku/Sentinel1/Release1-12day/'
     filenameVX=sorted(glob.glob(base_dir + '*/*vx_v02.0.tif'))
     filenameVY=sorted(glob.glob(base_dir + '*/*vy_v02.0.tif'))
     filenameVV=sorted(glob.glob(base_dir + '*/*vv_v02.0.tif'))
@@ -266,21 +266,26 @@ elif datatype == 'Sentinel1':
 
 for j in np.arange(0, len(filenameVX)):
     
-    print('Processing: ' + basename(filenameVX[j]))
-    # velocity vectors are in UTM, but pixel coordinates are not
-    # vx_utm, vy_utm = projectVelocity(filenameVX[j], filenameVY[j], dt) 
-    vx_utm, vy_utm = rotateVelocity(filenameVX[j], filenameVY[j])
+    if isfile(filenameVX[j][:-4] + '_utm.tif'):
+        continue
     
-    
-    # project pixel coordinates into UTM and save geotiffs
-    filenameVX_new = writeUTMgeotiff(vx_utm, filenameVX[j])
-    filenameVY_new = writeUTMgeotiff(vy_utm, filenameVY[j])
-    
-    # load new geotiffs and compute the speed; now vectors and pixel coordinates are already in UTM
-    X, Y, vx, src_crs = importTerraSARX(filenameVX_new)
-    X, Y, vy, src_crs = importTerraSARX(filenameVY_new)
-    
-    vv = np.sqrt(vx**2+vy**2)
-    
-    writeUTMgeotiff_vv(vv, filenameVV[j])
+    else:
+        print('Processing: ' + basename(filenameVX[j]))
+        
+        # velocity vectors are in UTM, but pixel coordinates are not
+        # vx_utm, vy_utm = projectVelocity(filenameVX[j], filenameVY[j], dt) 
+        vx_utm, vy_utm = rotateVelocity(filenameVX[j], filenameVY[j])
+        
+        
+        # project pixel coordinates into UTM and save geotiffs
+        filenameVX_new = writeUTMgeotiff(vx_utm, filenameVX[j])
+        filenameVY_new = writeUTMgeotiff(vy_utm, filenameVY[j])
+        
+        # load new geotiffs and compute the speed; now vectors and pixel coordinates are already in UTM
+        X, Y, vx, src_crs = importTerraSARX(filenameVX_new)
+        X, Y, vy, src_crs = importTerraSARX(filenameVY_new)
+        
+        vv = np.sqrt(vx**2+vy**2)
+        
+        writeUTMgeotiff_vv(vv, filenameVV[j])
 
