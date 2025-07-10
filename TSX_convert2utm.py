@@ -184,6 +184,9 @@ def writeUTMgeotiff(data, originalFile):
     maxX=604000
     minY=6450000
     maxY=6515000
+    xres = ds.GetGeoTransform()[1]
+    yres = ds.GetGeoTransform()[-1]
+    
     
     ## Should be able to run gdal from within python, but for some reason the 
     ## following produces a blank geotiff. Instead use subprocess for now.
@@ -192,7 +195,7 @@ def writeUTMgeotiff(data, originalFile):
     
     filenameUTM = originalFile[:-4]+'_utm.tif'
     # be careful with resolution!
-    subprocess.run(['gdalwarp', '-t_srs', dst_crs, '-te', str(minX), str(minY), str(maxX), str(maxY), '-tr','200','-200', '-r', 'cubicspline', 'tmp.tif', filenameUTM])
+    subprocess.run(['gdalwarp', '-t_srs', dst_crs, '-te', str(minX), str(minY), str(maxX), str(maxY), '-tr', str(xres), str(yres), '-r', 'cubicspline', 'tmp.tif', filenameUTM])
     os.remove('tmp.tif')
 
     return(filenameUTM)
@@ -225,11 +228,13 @@ def writeUTMgeotiff_vv(data, filename):
     maxX=604000
     minY=6450000
     maxY=6515000
-    xres = 200
-    yres = 200
+    
+    ds = gdal.Open(filename)
+    xres = ds.GetGeoTransform()[1]
+    yres = ds.GetGeoTransform()[-1]
 
 
-    geotransform = (minX, xres, 0, maxY, 0, -yres)  # Example geotransform
+    geotransform = (minX, xres, 0, maxY, 0, yres)  # Example geotransform
     projection = osr.SpatialReference()
     projection.ImportFromEPSG(32608)  # Example projection (WGS84, UTM Zone 8)
     
@@ -249,7 +254,7 @@ def writeUTMgeotiff_vv(data, filename):
 
 #%%
 
-datatype = 'Sentinel1'
+datatype = 'TSX'
 
 if datatype == 'TSX':
     base_dir = '/hdd2/taku/TerraSAR-X/velocities/Release5/Alaska-Taku/'
