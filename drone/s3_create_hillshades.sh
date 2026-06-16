@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # convert DEMs into hillshades for feature tracking
-base=/hdd/taku/uav/surveys
+base=/hdd2/taku/uav/surveys
 
 for file in $(ls $base'/02_takuGrid/taku_DEM'*.tif); do
 
